@@ -1,0 +1,114 @@
+root@test-task:~# ldapsearch -x -b "dc=example,dc=com" -H ldap://localhost
+# extended LDIF
+#
+# LDAPv3
+# base <dc=example,dc=com> with scope subtree
+# filter: (objectclass=*)
+# requesting: ALL
+#
+
+# example.com
+dn: dc=example,dc=com
+objectClass: top
+objectClass: dcObject
+objectClass: organization
+o: local
+dc: example
+
+# People, example.com
+dn: ou=People,dc=example,dc=com
+ou: People
+objectClass: organizationalUnit
+objectClass: top
+
+# Groups, example.com
+dn: ou=Groups,dc=example,dc=com
+ou: Groups
+objectClass: organizationalUnit
+objectClass: top
+
+# developers, Groups, example.com
+dn: cn=developers,ou=Groups,dc=example,dc=com
+cn: developers
+gidNumber: 10000
+objectClass: posixGroup
+objectClass: top
+
+# managers, Groups, example.com
+dn: cn=managers,ou=Groups,dc=example,dc=com
+cn: managers
+gidNumber: 10001
+objectClass: posixGroup
+objectClass: top
+
+# jdoe, People, example.com
+dn: uid=jdoe,ou=People,dc=example,dc=com
+cn: John Doe
+sn: Doe
+uid: jdoe
+uidNumber: 1000
+gidNumber: 10001
+homeDirectory: /home/jdoe
+loginShell: /bin/bash
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+
+# asmith, People, example.com
+dn: uid=asmith,ou=People,dc=example,dc=com
+cn: Alice Smith
+sn: Smith
+uid: asmith
+uidNumber: 1001
+gidNumber: 10001
+homeDirectory: /home/asmith
+loginShell: /bin/bash
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+
+# mivanov, People, example.com
+dn: uid=mivanov,ou=People,dc=example,dc=com
+cn: Maksim Ivanov
+sn: Ivanov
+uid: mivanov
+uidNumber: 1000
+gidNumber: 10001
+homeDirectory: /home/mivanov
+loginShell: /bin/bash
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+
+# aobroskova, People, example.com
+dn: uid=aobroskova,ou=People,dc=example,dc=com
+cn: Alice Obroskova
+sn: Obroskova
+uid: aobroskova
+uidNumber: 1001
+gidNumber: 10001
+homeDirectory: /home/aobroskova
+loginShell: /bin/bash
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+
+# iruban, People, example.com
+dn: uid=iruban,ou=People,dc=example,dc=com
+cn: Ivan Ruban
+sn: Ruban
+uid: iruban
+uidNumber: 1002
+gidNumber: 10001
+homeDirectory: /home/iruban
+loginShell: /bin/bash
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+
+# search result
+search: 2
+result: 0 Success
+
+# numResponses: 11
+# numEntries: 10

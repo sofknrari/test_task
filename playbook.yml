@@ -1,0 +1,129 @@
+---
+- name: Install and configure OpenLDAP server
+  hosts: ldap_servers
+  become: true
+  vars_files:
+    - secrets.yml
+  vars:
+    ldap_domain: "example.com"
+    ldap_organization: "Example Corp"
+    ldap_admin_password: "{{ vault_ldap_admin_password }}"
+    ldap_base_dn: "dc=example,dc=com"
+    ldap_admin_dn: "cn=admin,{{ ldap_base_dn }}"
+
+  tasks:
+    - name: Pre-configure slapd with debconf
+      ansible.builtin.debconf:
+        name: slapd
+        question: "{{ item.question }}"
+        value: "{{ item.value }}"
+        vtype: "{{ item.vtype }}"
+      loop:
+        - { question: 'slapd/domain', value: '{{ ldap_domain }}', vtype: 'string' }
+        - { question: 'slapd/internal/admin_password', value: '{{ ldap_admin_password }}', vtype: 'password' }
+        - { question: 'slapd/internal/admin_password_confirmation', value: '{{ ldap_admin_password }}', vtype: 'password' }
+        - { question: 'slapd/no_configuration', value: 'false', vtype: 'boolean' }
+      no_log: true
+
+    - name: Install OpenLDAP and requirements
+      ansible.builtin.apt:
+        name:
+          - slapd
+          - ldap-utils
+          - python3-ldap
+        state: present
+        update_cache: yes
+
+    - name: Ensure slapd is running and enabled
+      ansible.builtin.service:
+        name: slapd
+        state: started
+        enabled: yes
+
+    - name: Configure LDAP Suffix, RootDN and Password (EXTERNAL)
+      ansible.builtin.shell: |
+        echo "dn: olcDatabase={1}mdb,cn=config
+        changetype: modify
+        replace: olcSuffix
+        olcSuffix: {{ ldap_base_dn }}
+        -
+        replace: olcRootDN
+        olcRootDN: {{ ldap_admin_dn }}
+        -
+        replace: olcRootPW
+        olcRootPW: {{ ldap_admin_password }}" | ldapmodify -Y EXTERNAL -H ldapi:///
+      register: set_conf
+      changed_when: set_conf.rc == 0
+      failed_when: false
+      no_log: true
+
+    - name: Ensure Base DN entry exists
+      community.general.ldap_entry:
+        dn: "{{ ldap_base_dn }}"
+        objectClass:
+          - top
+          - dcObject
+          - organization
+        attributes:
+          dc: "{{ ldap_domain.split('.')[0] }}"
+          o: "{{ ldap_organization }}"
+        server_uri: ldap://localhost
+        bind_dn: "{{ ldap_admin_dn }}"
+        bind_pw: "{{ ldap_admin_password }}"
+
+    - name: Create Organizational Units
+      community.general.ldap_entry:
+        dn: "ou={{ item }},{{ ldap_base_dn }}"
+        objectClass:
+          - organizationalUnit
+          - top
+        attributes:
+          ou: "{{ item }}"
+        server_uri: ldap://localhost
+        bind_dn: "{{ ldap_admin_dn }}"
+        bind_pw: "{{ ldap_admin_password }}"
+      loop:
+        - People
+        - Groups
+
+    - name: Add LDAP groups
+      community.general.ldap_entry:
+        dn: "cn={{ item }},ou=Groups,{{ ldap_base_dn }}"
+        objectClass:
+          - posixGroup
+          - top
+        attributes:
+          cn: "{{ item }}"
+          gidNumber: "{{ 10000 + ansible_loop_index }}"
+        server_uri: ldap://localhost
+        bind_dn: "{{ ldap_admin_dn }}"
+        bind_pw: "{{ ldap_admin_password }}"
+      loop:
+        - developers
+        - managers
+      loop_control:
+        index_var: ansible_loop_index
+
+    - name: Add LDAP users
+      community.general.ldap_entry:
+        dn: "uid={{ item.username }},ou=People,{{ ldap_base_dn }}"
+        objectClass:
+          - inetOrgPerson
+          - posixAccount
+          - shadowAccount
+        attributes:
+          cn: "{{ item.full_name }}"
+          sn: "{{ item.last_name }}"
+          uid: "{{ item.username }}"
+          uidNumber: "{{ 1000 + ansible_loop_index }}"
+          gidNumber: 10001 # developers
+          homeDirectory: "/home/{{ item.username }}"
+          loginShell: /bin/bash
+          userPassword: "{{ item.password }}"
+        server_uri: ldap://localhost
+        bind_dn: "{{ ldap_admin_dn }}"
+        bind_pw: "{{ ldap_admin_password }}"
+      loop: "{{ vault_users }}"
+      loop_control:
+        index_var: ansible_loop_index
+      no_log: true
